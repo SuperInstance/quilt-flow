@@ -1,0 +1,8 @@
+{
+  "name": "quilt-flow",
+  "version": "0.1.0",
+  "description": "Visual editor for Quilt sheets. Drag-and-drop cell wiring, like Scratch but for cells.",
+  "main": "src/index.js",
+  "type": "module",
+  "license": "MIT"
+}
