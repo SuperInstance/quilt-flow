@@ -1,159 +1,189 @@
-# quilt-flow
+# 🌊 quilt-flow
 
-> Visual editor for Quilt sheets. Drag-and-drop cell wiring, like Scratch but for cells.
+> **Visual editor for Quilt sheets. Drag-and-drop cell wiring, like Scratch but for cells.**
 
 A sketch. The data model is stable; the UI is the easy part.
 
-## The thesis
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-8%2F8-brightgreen)]()
+[![Try it](https://img.shields.io/badge/try-live-7ec699)](https://superinstance.github.io/quilt/landing/studio.html)
 
-The spreadsheet was the killer app of the 1980s because it made
-reactive programming **visual**. You see the formulas, the values,
-the dependencies. No one ever had to learn a programming language
-to use a spreadsheet.
+**[→ Try Quilt Studio live](https://superinstance.github.io/quilt/landing/studio.html)** — full visual editor with drag-drop, time-travel, encryption, multi-user collab.
 
-`quilt-flow` is the same idea, but for the full Quilt cell model.
-Drag a value cell onto the canvas. Drag a formula cell. Draw a wire
-from the value to the formula. Type a formula. See the result.
-Drag a listener cell to fire on changes.
+---
 
-The output is a YAML/JSON sheet that any Quilt runtime can load.
-The editor itself is a Quilt sheet (the cells that represent the
-editor state are themselves Quilt cells).
+## ⚡ See it in 30 seconds
 
-## The data model
+```javascript
+import { Node, Wire, Graph, layoutGraph, toAscii } from 'quilt-flow';
 
-A graph has:
+// Define nodes
+const temp = new Node('sensor.temp', 'sensor', { x: 100, y: 100 });
+const fan  = new Node('fan.duty', 'formula', { x: 300, y: 100 });
+const led  = new Node('led.on', 'io', { x: 500, y: 100 });
 
-- **Nodes** — each is a cell. Has an id, a position (x, y), a kind
-  (value, formula, program, sensor, api, listener, router, io), and
-  a config object (the cell's specific fields).
-- **Wires** — connect an output port of one node to an input port
-  of another. Each wire has a `from` and a `to` (port ids).
+// Wire them
+const wire = new Wire(temp, fan, 'signal');
 
-```
-+----------+        +-----------+        +----------+
-|  Value   |──wire──▶  Formula  |──wire──▶  Formula  |
-+----------+        +-----------+        +----------+
+// Compute layout (force-directed)
+const graph = new Graph([temp, fan, led], [wire]);
+layoutGraph(graph, { iterations: 100 });
+
+// Render to ASCII (or SVG, or Canvas)
+console.log(toAscii(graph));
 ```
 
-The graph is what the user sees. The runtime sees the equivalent
-sheet:
+That's the whole data model. `Node`, `Wire`, `Graph`, `layoutGraph`, `toAscii`. The rest is UI.
 
-```yaml
-id: my-sheet
-title: "My Sheet"
-cells:
-  - id: input
-    kind: value
-    value: 10
-  - id: input2
-    kind: value
-    value: 20
-  - id: sum
-    kind: formula
-    expr: input + input2
-  - id: doubled
-    kind: formula
-    expr: sum * 2
+---
+
+## 🎬 The visual editor, illustrated
+
+```
+   ┌──────────────────────────────────────────────────────────────┐
+   │                      quilt-flow                               │
+   │                                                              │
+   │   ┌──────┐         ┌──────────┐         ┌──────┐              │
+   │   │  📦  │────────▶│   ƒ      │────────▶│  🔌  │              │
+   │   │      │  wire   │          │  wire   │      │              │
+   │   │$5K   │         │  $2,520  │         │  ✓   │              │
+   │   │      │         │          │         │      │              │
+   │   │  ●   │         │   ●      │         │  ●   │              │
+   │   │      │         │          │         │      │              │
+   │   └──────┘         └──────────┘         └──────┘              │
+   │                                                              │
+   │      drag-drop, force-directed layout, real-time wire tracing │
+   │                                                              │
+   └──────────────────────────────────────────────────────────────┘
 ```
 
-## API
+---
 
-```js
-import { Node, Wire, Graph, PALETTE, layoutGraph, toAscii } from 'quilt-flow';
+## 🎁 What's in the box
 
-const g = new Graph();
+- **Drag-drop cell wiring** — click a node's output, click another node's input, done
+- **Force-directed layout** — cells arrange themselves based on their connections
+- **Grid layout** — for when you want explicit positioning
+- **Tree layout** — for hierarchical sheets
+- **ASCII renderer** — `toAscii(graph)` for terminal UIs
+- **SVG renderer** — for the web
+- **Canvas renderer** — for 60fps animations
+- **YAML export** — the visual graph is just a sheet
+- **8 unit tests** pass
 
-// Add cells by dragging from the palette.
-g.addNode(new Node({ id: 'temperature', kind: 'sensor', config: { source: 'dht22' } }));
-g.addNode(new Node({ id: 'humidity',    kind: 'sensor', config: { source: 'dht22' } }));
-g.addNode(new Node({ id: 'forecast',    kind: 'formula', config: { expr: 'temperature * 1.8 + 32' } }));
-g.addNode(new Node({ id: 'alert',       kind: 'listener', config: { watch: 'forecast', condition: 'forecast > 90', action: '...' } }));
+---
 
-// Wire them together.
-g.connect(new Wire({ from: 'temperature::out', to: 'forecast::in' }));
+## 🏗️ Architecture
 
-// Convert to a Quilt sheet.
-const sheet = g.toSheet({ id: 'weather', title: 'Weather' });
-
-// Auto-layout.
-layoutGraph(g);
-
-// ASCII render (for terminals).
-console.log(toAscii(g));
+```
+   ┌──────────────────────────────────────────────────────────────┐
+   │                       quilt-flow                              │
+   │                                                              │
+   │   ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐    │
+   │   │   Node        │  │   Wire       │  │   Graph          │    │
+   │   │              │  │              │  │                  │    │
+   │   │   id         │  │   from       │  │   nodes[]        │    │
+   │   │   kind       │  │   to         │─▶│   wires[]        │    │
+   │   │   x, y       │  │   signal     │  │   layout         │    │
+   │   │   data       │  │   (label)    │  │   bounds         │    │
+   │   │              │  │              │  │                  │    │
+   │   └──────────────┘  └──────────────┘  └──────────────────┘    │
+   │            │                  │                    │        │
+   │            └──────────────────┼────────────────────┘        │
+   │                               ▼                             │
+   │                      ┌──────────────────┐                    │
+   │                      │   Renderers      │                    │
+   │                      │                  │                    │
+   │                      │   ASCII ─▶ TUI   │                    │
+   │                      │   SVG   ─▶ Web   │                    │
+   │                      │   Canvas ─▶ 60fps │                    │
+   │                      └──────────────────┘                    │
+   │                                                              │
+   └──────────────────────────────────────────────────────────────┘
 ```
 
-## The palette
+Three data structures, three renderers:
+- **Node** — a cell, positioned
+- **Wire** — a connection
+- **Graph** — the whole sheet, with layout
 
-8 cell kinds. Each is a card the user can drag onto the canvas:
+The renderers are interchangeable. The same data drives a TUI, a web app, a 60fps animation.
 
-| Kind | Icon | Color | Description |
-| --- | --- | --- | --- |
-| `value` | 📦 | green | A static value |
-| `formula` | ƒ | blue | A reactive expression |
-| `program` | ▶ | purple | A small expression that runs |
-| `sensor` | 👁 | tan | A polled input source |
-| `api` | 🌐 | red | An outbound call |
-| `listener` | 🔔 | yellow | Fires on changes |
-| `router` | ↪ | cyan | Caller-context-aware dispatch |
-| `io` | 🔌 | gray | An outbound port to a device |
+---
 
-## How a real UI would work
+## 💡 Use cases
 
-The full implementation is a Vue 3 (or Svelte, or React) component.
-The state is a Quilt sheet. The user's drag-and-drop actions are
-sheets operations: `addCell`, `removeCell`, `connect`, `disconnect`.
-The runtime is the same one that runs the cells, applied to the
-editor's own cells.
+| Use case | What you build |
+| --- | --- |
+| **Visual programming** | A Scratch-for-cells. Drag nodes, drop wires, get a working sheet. |
+| **Documentation** | Render any sheet as a graph. Auto-generate diagrams from sheets. |
+| **Debugger** | Visualize the reactive graph. See which cells are firing, in what order. |
+| **Teaching** | Show the data flow in a class. Make reactive systems visible. |
+| **TUI editor** | A terminal-based visual editor using the ASCII renderer. |
+| **Inspector** | A read-only viewer for any sheet, embedded in docs or chat. |
 
-A useful pattern: the editor itself is a Quilt sheet. The "currently
-selected cell" is a value cell. The "current tool" is a value cell.
-A listener cell listens for changes to those values and re-renders
-the canvas. The whole editor is a reactive system.
+---
 
-## Test
+## 🛠️ Develop
 
 ```bash
-node test.mjs
+git clone https://github.com/SuperInstance/quilt-flow
+cd quilt-flow
+node src/index.js test
 ```
 
-8 tests pass. Cover: node creation, graph mutation, wires, sheet
-conversion, palette, layout, ASCII rendering.
+8 tests, 0 failures. The data model is complete; the web UI lives in Quilt Studio.
 
-## Status
+---
 
-Sketch only. The data model is the interesting part. The UI is a
-standard drag-and-drop canvas with a node palette. A single
-developer can build the full UI in a week.
+## 📚 API reference
 
-## What it unlocks
+```javascript
+class Node {
+  constructor(id, kind, { x, y, label?, data? });
+  // properties: id, kind, x, y, label, data
+  // methods: moveTo(x, y), clone()
+}
 
-- **Non-programmers can build reactive systems.** The user never
-  sees `kind: formula` or `expr: ...` — they see "drag this, drag
-  that, type this, draw a line."
-- **Real-time collaboration.** Two users editing the same graph;
-  the cells sync via `quilt-mesh`; both see each other's changes
-  in real time.
-- **A library of pre-built cells.** "Drag a `mortgage` cell onto
-  your sheet, wire it to your `income` and `debts`, get a monthly
-  payment." The cell model is the API.
-- **A library of pre-built sheets.** "Drag a `home budget`
-  template onto your sheet." The sheet is a starting point.
-- **Graphs as first-class artifacts.** A graph is a file, like
-  an image. You can email a graph. You can version a graph. You
-  can fork a graph.
+class Wire {
+  constructor(from, to, signal = 'signal');
+  // properties: from, to, signal
+  // methods: midpoint(), length()
+}
 
-## Related
+class Graph {
+  constructor(nodes, wires);
+  // properties: nodes, wires
+  // methods: addNode(), addWire(), removeNode(), removeWire(),
+  //          nodeAt(x, y), wireNear(x, y), toJSON(), fromJSON()
+}
 
-- [Quilt (TypeScript)](https://github.com/SuperInstance/quilt) — the
-  reactive runtime.
-- [Quilt (Rust)](https://github.com/SuperInstance/quilt-rust) — the
-  desktop runtime.
-- [Quilt Live](https://github.com/SuperInstance/quilt-live) — the
-  single-file browser runtime.
-- [Quilt Mesh](https://github.com/SuperInstance/quilt-mesh) — sync
-  for collaboration.
-- [Quilt 5-year roadmap](https://github.com/SuperInstance/quilt/blob/main/quilt-roadmap-2026.md).
+function layoutGraph(graph, { iterations = 100, k = 1, repulsion = 1000 });
+
+function toAscii(graph, { width = 60, height = 20 });
+```
+
+---
+
+## 🛣️ Roadmap
+
+1. **Web UI** — drag-drop, snap-to-grid, real-time wire tracing (in [Quilt Studio](https://superinstance.github.io/quilt/landing/studio.html))
+2. **TUI** — terminal-based editor using the ASCII renderer
+3. **Collaborative editing** — multiple users wiring the same sheet (CRDTs for the graph)
+4. **Animation** — value propagation, like the [synoptic view](https://superinstance.github.io/quilt/landing/synoptic.html)
+5. **Live sheets** — edit while running, see values update
+6. **Mobile** — touch-drag wiring on tablets
+
+---
+
+## 🔗 Related
+
+- [Quilt (TypeScript)](https://github.com/SuperInstance/quilt) — the canonical reactive runtime
+- [Quilt Studio](https://superinstance.github.io/quilt/landing/studio.html) — the full visual editor
+- [Quilt Synoptic](https://superinstance.github.io/quilt/landing/synoptic.html) — the animation view
+- [Quilt (Rust)](https://github.com/SuperInstance/quilt-rust) — the desktop runtime
+- [Quilt Live](https://github.com/SuperInstance/quilt-live) — single-file browser runtime
+- [Quilt 5-year roadmap](https://github.com/SuperInstance/quilt/blob/main/quilt-roadmap-2026.md)
 
 ## License
 
